@@ -55,7 +55,12 @@ def get_or_create_worksheet(
     try:
         worksheet = sh.worksheet(sheet_name)
         # Если лист существует — даты уже есть, считываем их из колонки A
-        dates = [cell.value for cell in worksheet.col_values(1)[1:] if cell.value and cell.value not in ("Итого:", "ИТОГО")]
+        # col_values возвращает список строк (не Cell объектов)
+        col_a = worksheet.col_values(1)
+        dates = [
+            val for val in col_a[1:]
+            if val and val not in ("Итого:", "ИТОГО")
+        ]
         return worksheet, dates
     except gspread.WorksheetNotFound:
         num_categories = len(CATEGORIES)
