@@ -52,7 +52,7 @@ def start(message):
     bot.reply_to(
         message,
         "👋 Привет! Отправь мне PDF-выписку из банка, "
-        "и я запишу расходы в Google Таблицу",
+        "и я запишу расходы в Google Sheets!",
     )
 
 
