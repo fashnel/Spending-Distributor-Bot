@@ -24,7 +24,7 @@ load_dotenv()
 # ─── Настройка Google Sheets ─────────────────────────────────────────────────
 gc = get_google_client()
 
-apihelper.CONNECT_TIMEOUT = 300 
+apihelper.CONNECT_TIMEOUT = 300
 apihelper.READ_TIMEOUT = 300
 # ─── Настройка бота ──────────────────────────────────────────────────────────
 apihelper.ENABLE_MIDDLEWARE = True
@@ -33,21 +33,43 @@ ALLOWED_USER_ID = int(os.getenv("MY_ID"))
 bot = telebot.TeleBot(TOKEN)
 
 
-# ─── Middleware: проверка ID пользователя ────────────────────────────────────
+# ─── Фильтр: проверка ID пользователя ────────────────────────────────────────
+class IsAllowedUser(telebot.custom_filters.SimpleCustomFilter):
+    """Фильтр, пропускающий только разрешённого пользователя."""
+    key = 'is_allowed'
+
+    @staticmethod
+    def check(message):
+        if message.from_user.id != ALLOWED_USER_ID:
+            return False
+        return True
+
+
+bot.add_custom_filter(IsAllowedUser())
+
+
+# ─── Middleware: отправляем отказ неразрешённым пользователям ────────────────
+# Хранит ID пользователей, которым уже отправили отказ, чтобы не спамить
+_denied_users: set[int] = set()
+
+
 @bot.middleware_handler(update_types=['message'])
 def check_auth(bot_instance, message):
-    # Если ID не совпадает с твоим
     if message.from_user.id != ALLOWED_USER_ID:
-        try:
-            bot.send_message(message.chat.id, f"❌ Доступ закрыт (ID: {message.from_user.id}).")
-        except Exception as e:
-            print(f"[AUTH] Не удалось отправить отказ: {e}")
-        return False # Скипаем обработку сообщения дальше
-    # Если всё ок — ничего не возвращаем (или True), бот пойдет дальше
+        if message.from_user.id not in _denied_users:
+            try:
+                bot_instance.send_message(
+                    message.chat.id,
+                    f"❌ Доступ закрыт (ID: {message.from_user.id}).",
+                )
+                _denied_users.add(message.from_user.id)
+            except Exception as e:
+                print(f"[AUTH] Не удалось отправить отказ: {e}")
+        # Не возвращаем ничего — фильтр is_allowed на хендлерах заблокирует
 
 
 # ─── Команда /start ──────────────────────────────────────────────────────────
-@bot.message_handler(commands=["start"])
+@bot.message_handler(commands=["start"], is_allowed=True)
 def start(message):
     bot.reply_to(
         message,
@@ -57,7 +79,7 @@ def start(message):
 
 
 # ─── Обработка PDF-файлов ────────────────────────────────────────────────────
-@bot.message_handler(content_types=["document", "text"])
+@bot.message_handler(content_types=["document", "text"], is_allowed=True)
 def handle_pdf(message):
     """Скачивает PDF, парсит, агрегирует и записывает в таблицу."""
     # Проверка на случай текстовых сообщений
