@@ -1,6 +1,6 @@
 services:
   bot:
-    image: ghcr.io/ВАШ_GITHUB_USERNAME/spending-distributor-bot:latest
+    image: ghcr.io/fashnel/spending-distributor-bot:latest
     container_name: telegram_bot
     restart: unless-stopped
     env_file:
