@@ -54,8 +54,9 @@ def get_or_create_worksheet(
 
     try:
         worksheet = sh.worksheet(sheet_name)
-        # Если лист существует — даты уже есть, возвращаем пустой список
-        return worksheet, []
+        # Если лист существует — даты уже есть, считываем их из колонки A
+        dates = [cell.value for cell in worksheet.col_values(1)[1:] if cell.value and cell.value not in ("Итого:", "ИТОГО")]
+        return worksheet, dates
     except gspread.WorksheetNotFound:
         num_categories = len(CATEGORIES)
         num_rows = 40  # с запасом
@@ -74,7 +75,6 @@ def get_or_create_worksheet(
         worksheet.append_rows([HEADERS] + rows, value_input_option="USER_ENTERED")
 
         # Настраиваем формат чисел для колонок с категориями (B, C, D, ...)
-        # B2:D{last_date_row}
         last_date_row = len(dates) + 1  # +1 для строки заголовков
         for col_idx in range(2, num_categories + 2):  # колонки B, C, D... (1-based)
             range_name = f"{_col_letter(col_idx)}2:{_col_letter(col_idx)}{last_date_row}"
@@ -82,6 +82,9 @@ def get_or_create_worksheet(
                 range_name,
                 {"numberFormat": {"type": "NUMBER", "pattern": "#,##0.00"}},
             )
+
+        # Вставляем строку Итого с формулами СУММ (только при создании листа)
+        _insert_totals_row(worksheet, len(dates), num_categories)
 
         return worksheet, dates
 
@@ -129,23 +132,27 @@ def append_expenses(
     expenses — список кортежей: (дата, категория, сумма).
     dates — список всех дат месяца (из get_or_create_worksheet).
     Данные вписываются в строки с соответствующими датами.
-    В конце добавляется строка ИТОГО с формулами СУММ.
+    Строка ИТОГО с формулами СУММ не трогается — она создаётся только при создании листа.
 
     Возвращает количество обновлённых строк.
     """
     if not expenses:
-        # Даже если расходов нет, вставляем строку Итого
-        _insert_totals_row(worksheet, len(dates), len(CATEGORIES))
         return 0
 
-    # Маппинг категории → индекс колонки (0-based относительно CATEGORIES)
-    cat_index = {cat: i + 1 for i, cat in enumerate(CATEGORIES)}
+    # Маппинг даты → индекс строки (0-based относительно dates)
+    date_to_row = {d: i for i, d in enumerate(dates)}
 
     # Собираем данные: {дата: {категория: сумма}}
     by_date: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     updated_dates = set()
 
+    # Маппинг категории → индекс колонки (0-based относительно CATEGORIES)
+    cat_index = {cat: i + 1 for i, cat in enumerate(CATEGORIES)}
+
     for date, category, amount in expenses:
+        # Пропускаем даты, которых нет в текущем месяце
+        if date not in date_to_row:
+            continue
         by_date[date][category] += amount
         updated_dates.add(date)
 
@@ -155,7 +162,7 @@ def append_expenses(
         if date not in by_date:
             continue
 
-        row_idx = dates.index(date) + 2  # +2: 1-я строка заголовки, индексы с 1
+        row_idx = date_to_row[date] + 2  # +2: 1-я строка заголовки, индексы с 1
         row_values = [""] * len(HEADERS)
         row_values[0] = date
 
@@ -170,8 +177,5 @@ def append_expenses(
         ]
         worksheet.update_cells(cell_range, value_input_option="USER_ENTERED")
         updated_count += 1
-
-    # Вставляем строку ИТОГО с формулами СУММ
-    _insert_totals_row(worksheet, len(dates), len(CATEGORIES))
 
     return updated_count
