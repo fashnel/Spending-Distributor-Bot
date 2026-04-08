@@ -1,0 +1,6 @@
+.git
+.env
+client_secret.json
+__pycache__/
+*.pyc
+README.md

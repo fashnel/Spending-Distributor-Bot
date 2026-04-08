@@ -1,0 +1,37 @@
+services:
+  bot:
+    # Пока образ собираем локально, потом заменим на ghcr.io после CI/CD
+    build: .
+    container_name: telegram_bot
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      # Прокси прямо здесь — telebot читает эти стандартные переменные окружения
+      - HTTPS_PROXY=${PROXY_URL}
+      - HTTP_PROXY=${PROXY_URL}
+      # Некоторые библиотеки смотрят на lowercase
+      - https_proxy=${PROXY_URL}
+      - http_proxy=${PROXY_URL}
+
+    volumes:
+      # Монтируем credentials снаружи — не запекаем в образ
+      # :ro = read-only, контейнер не может изменить файл
+      - ./client_secret.json:/app/client_secret.json:ro
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"   # максимум 10 МБ на файл лога
+        max-file: "3"     # хранить не более 3 файлов (итого 30 МБ максимум)
+                          # на твоём Celeron с маленьким диском это важно
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 60 --cleanup telegram_bot

@@ -2,6 +2,7 @@
 Модуль для парсинга PDF-выписок и агрегации расходов по датам и категориям.
 """
 
+import io
 import re
 from collections import defaultdict
 from datetime import datetime
@@ -46,11 +47,7 @@ def _parse_date(raw: str) -> str | None:
     return match.group(1)
 
 
-def parse_pdf(file_path: str) -> list[dict]:
-    """
-    Извлекает все строки из PDF через pdfplumber.
-    Возвращает список сырых строк (stripped, непустых).
-    """
+def parse_pdf(file_path: str | io.BytesIO) -> list[str]:  # принимает оба типа
     lines: list[str] = []
     with pdfplumber.open(file_path) as pdf:
         for page in pdf.pages:
