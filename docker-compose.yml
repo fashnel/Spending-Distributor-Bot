@@ -18,13 +18,3 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
-    restart: unless-stopped
-    environment:
-      - WATCHTOWER_DEBUG=true
-      - DOCKER_API_VERSION=1.40
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 60 --cleanup telegram_bot
