@@ -139,7 +139,7 @@ def handle_pdf(message):
 
         bot.send_message(
             message.chat.id,
-            f"✅ Успешно записано {added} строк в Google Таблицу.",
+            f"✅ записано {added} строк в Google Таблицу.",
         )
         print("[DEBUG] 12. ВСЁ ГОТОВО! Успешное завершение.", flush=True)
 
