@@ -73,7 +73,7 @@ def check_auth(bot_instance, message):
 def start(message):
     bot.reply_to(
         message,
-        "👋 Привет! Отправь мне PDF из банка, "
+        "👋 Привет! Отправь мне выписку из банка в формате PDF, "
         "и я запишу расходы в Google Sheets!",
     )
 
